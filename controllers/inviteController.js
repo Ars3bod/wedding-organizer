@@ -3,7 +3,6 @@ const Invite = require("../models/invite");
 const { generateQRCode } = require("../utils/qrCodeGenerator");
 const { parseCSV } = require("../utils/csvParser");
 const twilioClient = require("../config/twilio");
-const Invite = require("../models/invite");
 const qrCode = require("qrcode");
 
 // Function to upload image to imgbb
