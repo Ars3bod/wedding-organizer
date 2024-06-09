@@ -1,17 +1,23 @@
 const express = require("express");
-const { connectDB } = require("./config/db");
-const inviteRoutes = require("./routes/inviteRoutes");
-const twilio = require("./config/twilio");
-const app = express();
-
+const bodyParser = require("body-parser");
+const mongoose = require("mongoose");
 require("dotenv").config();
 
-connectDB();
+const db = require("./config/db");
+const inviteRoutes = require("./routes/inviteRoutes");
 
-app.use(express.json());
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Connect to MongoDB
+db.connect();
+
+// Routes
 app.use("/api/invites", inviteRoutes);
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });

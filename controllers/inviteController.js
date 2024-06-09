@@ -1,55 +1,93 @@
-const inviteService = require("../services/inviteService");
-const qrCodeGenerator = require("../utils/qrCodeGenerator");
-const csvParser = require("../utils/csvParser");
+const axios = require("axios");
+const Invite = require("../models/invite");
+const { generateQRCode } = require("../utils/qrCodeGenerator");
+const { parseCSV } = require("../utils/csvParser");
 const twilioClient = require("../config/twilio");
 
-//const { sendWhatsAppInvitation } = require("../services/inviteService");
+// Function to upload image to imgbb
+const uploadImageToImgBB = async (base64Image) => {
+  const apiKey = process.env.IMGBB_API_KEY; // Ensure this is set correctly
+  const url = "https://api.imgbb.com/1/upload";
+
+  const formData = new URLSearchParams();
+  formData.append("key", apiKey);
+  formData.append("image", base64Image.split(",")[1]); // Remove the "data:image/png;base64," part
+
+  try {
+    const response = await axios.post(url, formData.toString(), {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    // Log the response to verify the URL
+    console.log("ImgBB Response:", response.data);
+
+    return response.data.data.url;
+  } catch (error) {
+    console.error("Error uploading image to ImgBB:", error);
+    throw error;
+  }
+};
+const uploadCSV = async (req, res) => {
+  try {
+    const filePath = req.file.path; // Get the file path from multer
+    const invitees = await parseCSV(filePath);
+
+    const savePromises = invitees.map(async (invitee) => {
+      const qrCode = await generateQRCode(invitee.contactNumber);
+      const qrCodeUrl = await uploadImageToImgBB(qrCode); // Upload QR code to ImgBB
+      console.log("QR Code URL:", qrCodeUrl);
+
+      const newInvite = new Invite({
+        name: invitee.name,
+        contactNumber: invitee.contactNumber,
+        qrCode: qrCodeUrl, // Save the ImgBB URL
+      });
+      return newInvite.save();
+    });
+
+    await Promise.all(savePromises);
+
+    res.status(200).json({ message: "Invitations stored successfully" });
+  } catch (error) {
+    console.error("Error uploading CSV:", error);
+    res.status(500).json({ message: "Error uploading CSV", error });
+  }
+};
 
 const sendInvitations = async (req, res) => {
   try {
-    const invitees = await csvParser.parseCSV(req.file.path);
-    for (const invitee of invitees) {
-      // Add code to generate QR code here
-      // Assuming qrCode is generated and stored in invitee.qrCode
+    const invites = await Invite.find();
 
-      // Send WhatsApp invitation
-      await sendWhatsAppInvitation(invitee);
+    for (const invite of invites) {
+      console.log(
+        `Sending invitation to ${invite.contactNumber} with QR code URL: ${invite.qrCode}`
+      );
 
-      // Add code to save invitee details to the database
+      // Log the URL to check if it's valid
+      if (!/^https?:\/\/.+/.test(invite.qrCode)) {
+        console.error("Invalid URL format:", invite.qrCode);
+        throw new Error("Invalid media URL format");
+      }
+
+      await twilioClient.messages.create({
+        body: `Hi ${invite.name}! You're invited to our wedding. Please see the attached QR code.`,
+        from: `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`,
+        to: `whatsapp:${invite.contactNumber}`,
+        mediaUrl: [invite.qrCode], // Use the URL from ImgBB
+      });
     }
-    res.status(200).send("Invitations sent successfully");
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-};
 
-const validateInvite = async (req, res) => {
-  try {
-    const { qrCode } = req.body;
-    const isValid = await inviteService.validateInvite(qrCode);
-    res.status(200).json({ valid: isValid });
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-};
-
-const sendWhatsAppInvitation = async (invitee) => {
-  try {
-    const message = await twilioClient.messages.create({
-      body: `Hi ${invitee.name}! You're invited to our wedding. Please see the attached QR code.`,
-      from: `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`,
-      to: `whatsapp:${invitee.contactNumber}`,
-      mediaUrl: [invitee.qrCode], // Assuming qrCode is a URL to the generated QR code
-    });
-
-    console.log(`WhatsApp invitation sent to ${invitee.name}: ${message.sid}`);
+    res.status(200).json({ message: "Invitations sent successfully" });
   } catch (error) {
-    console.error("Error sending WhatsApp invitation:", error);
+    console.error("Error sending invitations:", error);
+    res.status(500).json({ message: "Error sending invitations", error });
   }
 };
 
 module.exports = {
+  uploadCSV,
   sendInvitations,
-  validateInvite,
-  sendWhatsAppInvitation,
+  uploadImageToImgBB,
 };

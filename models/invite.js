@@ -1,15 +1,11 @@
-const { Schema, model } = require("mongoose");
+const mongoose = require("mongoose");
 
-const inviteSchema = new Schema({
-  name: { type: String, required: true },
-  contactNumber: { type: String, required: true },
-  email: { type: String },
-  qrCode: { type: String, required: true },
-  status: { type: String, default: "sent" },
-  invitationSentAt: { type: Date, default: Date.now },
-  confirmedAt: { type: Date, default: null },
+const inviteSchema = new mongoose.Schema({
+  name: String,
+  contactNumber: String,
+  qrCode: String, // Base64 encoded QR code
 });
 
-const Invite = model("Invite", inviteSchema);
+const Invite = mongoose.model("Invite", inviteSchema);
 
 module.exports = Invite;

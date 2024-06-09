@@ -1,5 +1,5 @@
-const fs = require("fs");
 const csv = require("csv-parser");
+const fs = require("fs");
 
 const parseCSV = (filePath) => {
   return new Promise((resolve, reject) => {
@@ -8,10 +8,8 @@ const parseCSV = (filePath) => {
       .pipe(csv())
       .on("data", (data) => results.push(data))
       .on("end", () => resolve(results))
-      .on("error", (err) => reject(err));
+      .on("error", (error) => reject(error));
   });
 };
 
-module.exports = {
-  parseCSV,
-};
+module.exports = { parseCSV };

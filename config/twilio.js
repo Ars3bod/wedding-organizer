@@ -1,4 +1,3 @@
-// config/twilio.js
 const twilio = require("twilio");
 require("dotenv").config();
 
