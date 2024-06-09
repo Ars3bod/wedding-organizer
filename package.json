@@ -1,0 +1,30 @@
+{
+  "name": "wedding-organizer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ars3bod/wedding-organizer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Ars3bod/wedding-organizer/issues"
+  },
+  "homepage": "https://github.com/Ars3bod/wedding-organizer#readme",
+  "dependencies": {
+    "csv-parser": "^3.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongodb": "^6.7.0",
+    "mongoose": "^8.4.1",
+    "multer": "^1.4.5-lts.1",
+    "qrcode": "^1.5.3",
+    "twilio": "^5.1.1"
+  }
+}
