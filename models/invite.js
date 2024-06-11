@@ -9,6 +9,11 @@ const inviteSchema = new mongoose.Schema({
     enum: ["pending", "completed"],
     default: "pending",
   },
+  uniqueId: {
+    type: String,
+    required: true,
+    unique: true,
+  },
 });
 
 const Invite = mongoose.model("Invite", inviteSchema);
