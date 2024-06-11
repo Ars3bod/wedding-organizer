@@ -3,8 +3,6 @@ const Invite = require("../models/invite");
 const { generateQRCode } = require("../utils/qrCodeGenerator");
 const { parseCSV } = require("../utils/csvParser");
 const twilioClient = require("../config/twilio");
-const Invite = require("../models/invite");
-const qrCode = require("qrcode");
 
 // Function to upload image to imgbb
 const uploadImageToImgBB = async (base64Image) => {
@@ -29,31 +27,6 @@ const uploadImageToImgBB = async (base64Image) => {
   } catch (error) {
     console.error("Error uploading image to ImgBB:", error);
     throw error;
-  }
-};
-
-// Validate QR code endpoint
-exports.validateInvite = async (req, res) => {
-  try {
-    const { qrCodeUrl } = req.body;
-
-    // Find the invitation with the given QR code URL
-    const invite = await Invite.findOne({ qrCodeUrl });
-
-    if (!invite) {
-      return res.status(404).json({ message: "Invitation not found" });
-    }
-
-    // Update the status to 'completed'
-    invite.status = "completed";
-    await invite.save();
-
-    res
-      .status(200)
-      .json({ message: "Invitation validated successfully", invite });
-  } catch (error) {
-    console.error("Error validating invitation:", error);
-    res.status(500).json({ message: "Internal server error" });
   }
 };
 const uploadCSV = async (req, res) => {
