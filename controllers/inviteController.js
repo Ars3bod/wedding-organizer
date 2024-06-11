@@ -6,20 +6,22 @@ const twilioClient = require("../config/twilio");
 const qrCode = require("qrcode");
 const mongoose = require("mongoose");
 const qrCodeGenerator = require("../utils/qrCodeGenerator");
+const Jimp = require("jimp");
+const QrCode = require("qrcode-reader");
 
 // Function to upload image to imgbb
 const uploadImageToImgBB = async (base64Image) => {
-  // Ensure base64Image is a string before proceeding
-  // if (typeof base64Image !== "string") {
-  //   throw new Error("Base64 image is not a string");
-  // }
-
   const apiKey = process.env.IMGBB_API_KEY; // Ensure this is set correctly
   const url = "https://api.imgbb.com/1/upload";
 
+  // Check if the API key is set
+  if (!apiKey) {
+    throw new Error("IMGBB_API_KEY is not set in the environment variables.");
+  }
+
   const formData = new URLSearchParams();
   formData.append("key", apiKey);
-  formData.append("image", base64Image.base64Image); // Remove the "data:image/png;base64," part
+  formData.append("image", base64Image);
 
   try {
     const response = await axios.post(url, formData.toString(), {
@@ -42,10 +44,12 @@ const uploadCSV = async (req, res) => {
   try {
     const filePath = req.file.path; // Get the file path from multer
     const invitees = await parseCSV(filePath);
+
     const savePromises = invitees.map(async (invitee) => {
-      const uniqueId = new mongoose.Types.ObjectId().toString(); // Generate a unique ID
-      const qrCode = await qrCodeGenerator.generateQRCode(uniqueId); // Generate QR code with the unique ID
-      const qrCodeUrl = await uploadImageToImgBB(qrCode); // Upload QR code to ImgBB
+      const { base64Image, uniqueId } = await generateQRCode(
+        invitee.contactNumber
+      );
+      const qrCodeUrl = await uploadImageToImgBB(base64Image); // Upload QR code to ImgBB
       console.log("QR Code URL:", qrCodeUrl);
 
       const newInvite = new Invite({
@@ -53,15 +57,14 @@ const uploadCSV = async (req, res) => {
         contactNumber: invitee.contactNumber,
         qrCodeUrl: qrCodeUrl, // Save the ImgBB URL
         uniqueId: uniqueId, // Save the unique ID
-        status: "pending",
       });
       return newInvite.save();
     });
 
     await Promise.all(savePromises);
-    res.status(200).json({
-      message: "Invitations uploaded and QR codes generated successfully",
-    });
+    res
+      .status(200)
+      .json({ message: "CSV uploaded and QR codes generated successfully" });
   } catch (error) {
     console.error("Error uploading CSV:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -102,13 +105,20 @@ const sendInvitations = async (req, res) => {
 // Validate invitation by unique ID
 const validateInvite = async (req, res) => {
   try {
-    const { uniqueId } = req.body; // Use uniqueId from the request body
+    const { uniqueId } = req.body;
 
     // Find the invitation with the given unique ID
     const invite = await Invite.findOne({ uniqueId });
 
     if (!invite) {
       return res.status(404).json({ message: "Invitation not found" });
+    }
+
+    // Check if the invitation status is already 'completed'
+    if (invite.status === "completed") {
+      return res
+        .status(500)
+        .json({ message: "The invitation expired", invite });
     }
 
     // Update the status to 'completed'
@@ -124,9 +134,41 @@ const validateInvite = async (req, res) => {
   }
 };
 
+// Decode QR code endpoint
+const decodeQRCode = async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const buffer = file.buffer;
+
+    const image = await Jimp.read(buffer);
+
+    const decodedData = await new Promise((resolve, reject) => {
+      const qr = new QrCode();
+      qr.callback = (err, value) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(value.result);
+        }
+      };
+      qr.decode(image.bitmap);
+    });
+
+    res.status(200).json({ decodedData });
+  } catch (error) {
+    console.error("Error decoding QR code:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 module.exports = {
   uploadCSV,
   sendInvitations,
   uploadImageToImgBB,
   validateInvite,
+  decodeQRCode,
 };
